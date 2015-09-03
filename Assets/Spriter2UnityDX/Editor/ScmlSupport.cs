@@ -1,4 +1,4 @@
-﻿//This project is open source. Anyone can use any part of this code however they wish
+//This project is open source. Anyone can use any part of this code however they wish
 //Feel free to use this code in your own projects, or expand on this code
 //If you have any improvements to the code itself, please visit
 //https://github.com/Dharengo/Spriter2UnityDX and share your suggestions by creating a fork
@@ -16,6 +16,16 @@ namespace Spriter2UnityDX.Importing {
 	public class ScmlObject { //Master class that holds all the other data
 		[XmlElement ("folder")] public Folder[] folders { get; set; } // <folder> tags
 		[XmlElement ("entity")] public Entity[] entities { get; set; } // <entity> tags  
+
+        public Vector2 GetSpriteSize(int folderID, int fileID)
+        {
+            if (folderID < 0 || fileID < 0) return Vector2.zero;
+            // if the folder doesn't exist, return empty
+            if (folders.GetUpperBound(0) < folderID) return Vector2.zero;
+            // if the file doesn't exist, return empty
+            if (folders[folderID].files.GetUpperBound(0) < fileID) return Vector2.zero;
+            return new Vector2(folders[folderID].files[fileID].width, folders[folderID].files[fileID].height);
+        }
 	}
 	
 	public class Folder : ScmlElement {
@@ -28,6 +38,8 @@ namespace Spriter2UnityDX.Importing {
 		[XmlAttribute] public string name { get; set; }
 		[XmlAttribute] public float pivot_x { get; set; }
 		[XmlAttribute] public float pivot_y { get; set; }
+		[XmlAttribute] public float width { get; set; }
+		[XmlAttribute] public float height { get; set; }
 		//(engine specific type) fileReference;
 		// a reference to the image store in this file
 		//Dengar.NOTE: the above comments are an artifact from the pseudocode that these classes are based on
@@ -114,15 +126,15 @@ namespace Spriter2UnityDX.Importing {
 	}
 	
 	public class SpatialInfo {
-		public SpatialInfo () {x=0; y=0; angle=0; scale_x=1; scale_y=1; trueScaleX=float.NaN; trueScaleY=float.NaN; a=1;}
-		private float _x;
+        public SpatialInfo() { x = 0; y = 0; angle = 0; scale_x = 1; scale_y = 1; trueScaleX = float.NaN; trueScaleY = float.NaN; a = 1; pivot_x = 0; pivot_y = 0; }
+		protected float _x;
 		[XmlAttribute] public float x { 
 			get { return _x; }
 			set { _x = value * 0.01f; } //Unity measurement units are 100x smaller than Spriter units
-		} 
-		private float _y;
-		[XmlAttribute] public float y { 
-			get { return _y; }
+		}
+        protected float _y;
+		[XmlAttribute] public float y {
+            get { return _y; }
 			set { _y = value * 0.01f; }
 		} 
 		public Quaternion rotation { get; set; } //"angle" refers to a euler angle's Z value
@@ -138,7 +150,7 @@ namespace Spriter2UnityDX.Importing {
 				if (float.IsNaN(trueScaleX)) trueScaleX = value;
 			}
 		} 
-		private float trueScaleX;
+		protected float trueScaleX;
 		private float sy;
 		[XmlAttribute] public float scale_y { 
 			get { return sy; }
@@ -146,12 +158,27 @@ namespace Spriter2UnityDX.Importing {
 				sy = value;
 				if (float.IsNaN(trueScaleY)) trueScaleY = value;
 			}
-		} 
-		private float trueScaleY;
+		}
+        protected float trueScaleY;
 		[XmlAttribute] public float a { get; set; } //Alpha
+
+        protected float _pivot_x;
+        [XmlAttribute]
+        public float pivot_x
+        {
+            get { return _pivot_x; }
+            set { _pivot_x = value; } 
+        }
+        protected float _pivot_y;
+        [XmlAttribute]
+        public float pivot_y
+        {
+            get { return _pivot_y; }
+            set { _pivot_y = value; }
+        }
 		public bool processed = false;
 		//Some very funky maths to make sure all the scale values are off the bones and on the sprite instead
-		public bool Process (SpatialInfo parent) { 
+		public bool Process (SpatialInfo parent) {
 			if (GetType () == typeof(SpatialInfo)) {
 				scale_x = (scale_x > 0) ? 1 : -1;
 				scale_y = (scale_y > 0) ? 1 : -1;
@@ -184,11 +211,26 @@ namespace Spriter2UnityDX.Importing {
 	}
 	
 	public class SpriteInfo : SpatialInfo {
-		public SpriteInfo () : base () {pivot_x=0; pivot_y=1;}
+        public SpriteInfo() { x = 0; y = 0; angle = 0; scale_x = 1; scale_y = 1; trueScaleX = float.NaN; trueScaleY = float.NaN; a = 1; pivot_x = 0; pivot_y = 0; folder = -1; file = -1; }
 		[XmlAttribute] public int folder { get; set; }
 		[XmlAttribute] public int file { get; set; }
-		[XmlAttribute] public float pivot_x { get; set; }
-		[XmlAttribute] public float pivot_y { get; set; }
+        public Vector3 PrefabPosition(Vector2 spriteSize, float angle, float z_index)
+        {
+            float finalX = x;
+            float finalY = y;
+
+            if (spriteSize != Vector2.zero) {
+                if (pivot_x != 0)
+                {
+                    finalX += Mathf.Sin(Mathf.Deg2Rad * angle) * (spriteSize.y * .01f * (pivot_y - 1)) - Mathf.Cos(Mathf.Deg2Rad * angle) * (spriteSize.x * .01f * pivot_x);
+                }
+                if (pivot_y != 0)
+                {
+                    finalY += -Mathf.Cos(Mathf.Deg2Rad * angle) * (spriteSize.y * .01f * (pivot_y - 1)) - Mathf.Sin(Mathf.Deg2Rad * angle) * (spriteSize.x * .01f * pivot_x);
+                }
+            }
+            return new Vector3(finalX, finalY, z_index);
+        }
 	}
 
 	public abstract class ScmlElement {
