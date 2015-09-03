@@ -47,7 +47,7 @@ namespace Spriter2UnityDX.Prefabs {
 					ProcessingInfo.ModifiedPrefabs.Add (prefab);
 				}
 				try {
-					TryBuild (entity, prefab, instance, directory, prefabPath, folders);
+					TryBuild (entity, prefab, instance, directory, prefabPath, folders, obj);
 				}
 				catch (Exception e) {
 					DestroyImmediate (instance);
@@ -57,7 +57,8 @@ namespace Spriter2UnityDX.Prefabs {
 			return success;
 		}
 
-		private void TryBuild (Entity entity, GameObject prefab, GameObject instance, string directory, string prefabPath, IDictionary<int, IDictionary<int, Sprite>> folders) {
+        private void TryBuild(Entity entity, GameObject prefab, GameObject instance, string directory, string prefabPath, IDictionary<int, IDictionary<int, Sprite>> folders, ScmlObject scmlObject)
+        {
 			var controllerPath = string.Format ("{0}/{1}.controller", directory, entity.name);
 			var animator = instance.GetComponent<Animator> (); //Fetches the prefab's Animator
 			if (animator == null) animator = instance.AddComponent<Animator> (); //Or creates one if it doesn't exist
@@ -108,7 +109,7 @@ namespace Spriter2UnityDX.Prefabs {
 									defaultBones.TryGetValue (parentID, out parentInfo);
 									spatialInfo.Process (parentInfo);
 								}
-								child.localPosition = new Vector3 (spatialInfo.x, spatialInfo.y, 0f);
+                                child.localPosition = new Vector3(spatialInfo.x, spatialInfo.y, 0f);
 								child.localRotation = spatialInfo.rotation;
 								child.localScale = new Vector3 (spatialInfo.scale_x, spatialInfo.scale_y, 1f);
 							}
@@ -137,8 +138,12 @@ namespace Spriter2UnityDX.Prefabs {
 								defaultBones.TryGetValue (parentID, out parentInfo);
 								spriteInfo.Process (parentInfo);
 							}
-							child.localPosition = new Vector3 (spriteInfo.x, spriteInfo.y, oref.z_index); //Z-index helps determine draw order
-							child.localEulerAngles = new Vector3 (0f, 0f, spriteInfo.angle);				//The reason I don't use layers or layer orders is because
+                            var spriteSize = scmlObject.GetSpriteSize(spriteInfo.folder, spriteInfo.file);
+
+                            child.localEulerAngles = new Vector3 (0f, 0f, spriteInfo.angle);
+
+                            child.localPosition = spriteInfo.PrefabPosition(spriteSize, spriteInfo.angle, oref.z_index); //Z-index helps determine draw order
+											//The reason I don't use layers or layer orders is because
 							child.localScale = new Vector3 (spriteInfo.scale_x, spriteInfo.scale_y, 1f);	//There tend to be a LOT of body parts, it's better to treat
 							var color = renderer.color;												//The entity as a single sprite for layer sorting purposes.
 							color.a = spriteInfo.a;
